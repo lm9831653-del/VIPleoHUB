@@ -41,8 +41,6 @@
     .btn-outline:hover { background: var(--surface2); }
     .btn-green { background: #166534; color: var(--green); border: none; }
     .btn-green:hover { background: #14532d; }
-    .btn-danger { background: #450a0a; border: 1px solid #7f1d1d; color: #fca5a5; }
-    .btn-danger:hover { background: #5a0a0a; }
 
     .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; }
     .card-header { padding: 13px 20px; border-bottom: 1px solid var(--border); font-size: 0.75rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
@@ -79,20 +77,6 @@
 
     .sites { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
     .site-pill { padding: 5px 13px; border-radius: 99px; font-size: 0.76rem; font-weight: 600; background: var(--surface); border: 1px solid var(--border); }
-
-    /* Cookie / Session panel */
-    .session-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; }
-    .session-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 18px; cursor: pointer; user-select: none; gap: 10px; }
-    .session-header:hover { background: var(--surface2); }
-    .session-title { display: flex; align-items: center; gap: 8px; font-size: 0.88rem; font-weight: 600; }
-    .session-badge-wrap { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--muted); }
-    .session-chevron { transition: transform 0.2s; flex-shrink: 0; }
-    .session-body { display: none; flex-direction: column; gap: 14px; padding: 16px 18px; border-top: 1px solid var(--border); }
-    .session-body textarea { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; color: var(--text); font-size: 0.8rem; font-family: 'Courier New', monospace; resize: vertical; min-height: 100px; outline: none; }
-    .session-body textarea:focus { border-color: var(--primary); }
-    .cookie-hint { font-size: 0.78rem; color: var(--muted); line-height: 1.6; }
-    .cookie-hint a { color: var(--primary); }
-    .cookie-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
     footer { margin-top: auto; padding: 20px; text-align: center; color: var(--muted); font-size: 0.78rem; border-top: 1px solid var(--border); width: 100%; }
     .hidden { display: none !important; }
@@ -133,12 +117,7 @@
     </div>
   </form>
 
-  <div id="session-badge" style="display:none;"></div>
-  <div id="session-body" style="display:none;">
-    <div id="platform-shortcut" style="display:none;"></div>
-    <textarea id="cookie-textarea" style="display:none;"></textarea>
-  </div>
-
+  
   <div id="error-box"   class="alert alert-error   hidden"></div>
   <div id="success-box" class="alert alert-success  hidden"></div>
 
@@ -194,234 +173,259 @@
 <footer>VIBleoHUB — Powered por yt-dlp · soporta más de 1000 sitios</footer>
 
 <script>
-  var API = (location.hostname === 'localhost' || location.hostname === '127.0.0.1') ? (location.origin + '/api') : (location.protocol === 'file:' ? 'https://vi-pleo-hub.vercel.app/api' : '/api');
+  var API = 'https://3aa94f65-e2f0-4cd5-b3b5-e4c71600c4da-00-net3lgsilw8m.kirk.replit.dev/api';
   var currentInfo = null;
 
   // --- Cookies ---
-  function checkCookieStatus() {
-    fetch(API + '/cookies/status').then(function(r){ return r.json(); }).then(function(d){
-      var badge = document.getElementById('session-badge');
-      if (!badge) return;
-      if (d.hasCookies) {
-        badge.textContent = '✅ Activas';
-        badge.style.color = '#4ade80';
-      } else {
-        badge.textContent = '(no configuradas)';
-        badge.style.color = '';
-      }
-    }).catch(function(){});
-  }
-
-  function saveCookies() {
-    var textarea = document.getElementById('cookie-textarea');
-    if (!textarea) return;
-    var text = textarea.value.trim();
-    if (!text) { alert('Pega primero el contenido de tus cookies.'); return; }
-    fetch(API + '/cookies', {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: text
-    }).then(function(r){ return r.json(); }).then(function(d){
-      if (d.ok) {
-        checkCookieStatus();
-        alert('✅ Cookies guardadas correctamente.');
-      } else {
-        alert('Error: ' + (d.error || 'No se pudo guardar'));
-      }
-    }).catch(function(){ alert('No se pudo conectar con el servidor'); });
-  }
-
-  function clearCookies() {
-    if (!confirm('¿Borrar las cookies guardadas?')) return;
-    fetch(API + '/cookies', { method: 'DELETE' }).then(function(){
-      checkCookieStatus();
-      var textarea = document.getElementById('cookie-textarea');
-      if (textarea) textarea.value = '';
-      alert('Cookies eliminadas.');
-    }).catch(function(){});
-  }
-
-  var PLATFORMS = {
-    'youtube.com':     {
-      name: 'YouTube', color: '#ff4444', url: 'https://www.youtube.com',
-      cookies: ['SAPISID','__Secure-3PAPISID','LOGIN_INFO'],
-      private: [
-        { icon: '&#128274;', label: 'Videos con restricci&#243;n de edad', needsCookies: true },
-        { icon: '&#128101;', label: 'Videos de miembros (Members Only)', needsCookies: true },
-        { icon: '&#128274;', label: 'Videos privados de tu cuenta', needsCookies: true },
-        { icon: '&#10060;', label: 'Videos privados de otro usuario', needsCookies: false, note: 'Imposible aunque tengas cookies' }
-      ]
-    },
-    'youtu.be':        { alias: 'youtube.com' },
-    'instagram.com':   {
-      name: 'Instagram', color: '#e1306c', url: 'https://www.instagram.com',
-      cookies: ['sessionid','csrftoken','ds_user_id'],
-      private: [
-        { icon: '&#128274;', label: 'Posts de cuentas privadas que sigues', needsCookies: true },
-        { icon: '&#127916;', label: 'Stories y Reels de cuentas privadas', needsCookies: true },
-        { icon: '&#10060;', label: 'Cuentas privadas que NO sigues', needsCookies: false, note: 'Necesitas seguirla primero' }
-      ]
-    },
-    'twitter.com':     {
-      name: 'Twitter / X', color: '#1da1f2', url: 'https://twitter.com',
-      cookies: ['auth_token','ct0'],
-      private: [
-        { icon: '&#128274;', label: 'Tweets de cuentas protegidas que sigues', needsCookies: true },
-        { icon: '&#127916;', label: 'Videos de tweets con login requerido', needsCookies: true },
-        { icon: '&#10060;', label: 'Cuentas protegidas que NO sigues', needsCookies: false, note: 'Debes seguirla y tener aprobaci&#243;n' }
-      ]
-    },
-    'x.com':           { alias: 'twitter.com' },
-    'tiktok.com':      {
-      name: 'TikTok', color: '#69c9d0', url: 'https://www.tiktok.com',
-      cookies: ['sessionid','tt_webid_v2','ttwid'],
-      private: [
-        { icon: '&#128274;', label: 'Videos de cuentas privadas que sigues', needsCookies: true },
-        { icon: '&#127916;', label: 'Videos restringidos por regi&#243;n', needsCookies: true },
-        { icon: '&#10060;', label: 'Videos de cuentas privadas que NO sigues', needsCookies: false, note: 'Debes seguirla y estar aceptado' }
-      ]
-    },
-    'vk.com':          {
-      name: 'VK', color: '#45688e', url: 'https://vk.com',
-      cookies: ['remixsid','remixsid_https','remixlang'],
-      private: [
-        { icon: '&#128274;', label: 'Videos de grupos privados donde est&#225;s', needsCookies: true },
-        { icon: '&#127916;', label: 'Videos de perfiles privados de amigos', needsCookies: true },
-        { icon: '&#10060;', label: 'Videos de grupos/perfiles donde no est&#225;s', needsCookies: false, note: 'Necesitas ser miembro/amigo' }
-      ]
-    },
-    'vkvideo.ru':      { alias: 'vk.com' },
-    'facebook.com':    {
-      name: 'Facebook', color: '#1877f2', url: 'https://www.facebook.com',
-      cookies: ['c_user','xs','datr'],
-      private: [
-        { icon: '&#128101;', label: 'Videos de amigos con privacidad "Amigos"', needsCookies: true },
-        { icon: '&#128274;', label: 'Videos en grupos privados donde est&#225;s', needsCookies: true },
-        { icon: '&#10060;', label: 'Videos de "Solo yo" de otros usuarios', needsCookies: false, note: 'Imposible' }
-      ]
-    },
-    'reddit.com':      {
-      name: 'Reddit', color: '#ff4500', url: 'https://www.reddit.com',
-      cookies: ['reddit_session','token_v2'],
-      private: [
-        { icon: '&#128274;', label: 'Posts en subreddits privados donde est&#225;s', needsCookies: true },
-        { icon: '&#128101;', label: 'Contenido NSFW (mayores de 18)', needsCookies: true },
-        { icon: '&#10060;', label: 'Subreddits privados donde NO est&#225;s', needsCookies: false, note: 'Necesitas ser miembro aprobado' }
-      ]
-    },
-    'vimeo.com':       {
-      name: 'Vimeo', color: '#1ab7ea', url: 'https://vimeo.com',
-      cookies: ['vimeo','vimeo_remember_me'],
-      private: [
-        { icon: '&#128274;', label: 'Videos privados de tu propia cuenta', needsCookies: true },
-        { icon: '&#128101;', label: 'Videos privados compartidos contigo', needsCookies: true },
-        { icon: '&#128220;', label: 'Videos con contrase&#241;a', needsCookies: false, note: 'Usa la opci&#243;n de contrase&#241;a en yt-dlp con --video-password' }
-      ]
-    },
-    'twitch.tv':       {
-      name: 'Twitch', color: '#9147ff', url: 'https://www.twitch.tv',
-      cookies: ['auth-token','twilight-user'],
-      private: [
-        { icon: '&#128101;', label: 'VODs exclusivos para suscriptores', needsCookies: true },
-        { icon: '&#127916;', label: 'Clips de canales con restricci&#243;n', needsCookies: true },
-        { icon: '&#10060;', label: 'Streams eliminados o expirados', needsCookies: false, note: 'Ya no existen en el servidor' }
-      ]
-    },
-    'bilibili.com':    {
-      name: 'Bilibili', color: '#00b2ff', url: 'https://www.bilibili.com',
-      cookies: ['SESSDATA','bili_jct','DedeUserID'],
-      private: [
-        { icon: '&#128274;', label: 'Videos para usuarios registrados (login)', needsCookies: true },
-        { icon: '&#128101;', label: 'Contenido de Big Membership (suscripci&#243;n)', needsCookies: true },
-        { icon: '&#10060;', label: 'Videos eliminados o en revisi&#243;n', needsCookies: false, note: 'Ya no est&#225;n disponibles' }
-      ]
-    },
-    'dailymotion.com': {
-      name: 'Dailymotion', color: '#0066cc', url: 'https://www.dailymotion.com',
-      cookies: ['sid','ts'],
-      private: [
-        { icon: '&#128274;', label: 'Videos privados de tu cuenta', needsCookies: true },
-        { icon: '&#10060;', label: 'Videos privados de otros usuarios', needsCookies: false, note: 'Imposible sin ser el due&#241;o' }
-      ]
-    }
-  };
-
-  function resolvePlatform(url) {
-    try {
-      var hostname = new URL(url.trim().startsWith('http') ? url.trim() : 'https://' + url.trim()).hostname.replace(/^(www\.|m\.|mobile\.|vm\.|vt\.)/, '');
-      for (var domain in PLATFORMS) {
-        if (hostname === domain || hostname.endsWith('.' + domain)) {
-          var p = PLATFORMS[domain];
-          if (p.alias) return PLATFORMS[p.alias];
-          return p;
+    function checkCookieStatus() {
+      fetch(API + '/cookies/status').then(function(r){ return r.json(); }).then(function(d){
+        var badge = document.getElementById('session-badge');
+        if (d.hasCookies) {
+          badge.textContent = '✅ Activas';
+          badge.style.color = '#4ade80';
+        } else {
+          badge.textContent = '(no configuradas)';
+          badge.style.color = '';
         }
+      }).catch(function(){});
+    }
+
+    function saveCookies() {
+      var text = document.getElementById('cookie-textarea').value.trim();
+      if (!text) return;
+      fetch(API + '/cookies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: text
+      }).then(function(r){ return r.json(); }).then(function(d){
+        if (d.ok) {
+          checkCookieStatus();
+        } else {
+          alert('Error: ' + (d.error || 'No se pudo guardar'));
+        }
+      }).catch(function(){ alert('No se pudo conectar con el servidor'); });
+    }
+
+    function clearCookies() {
+      fetch(API + '/cookies', { method: 'DELETE' }).then(function(){
+        checkCookieStatus();
+        document.getElementById('cookie-textarea').value = '';
+      }).catch(function(){});
+    }
+
+    var PLATFORMS = {
+      'youtube.com':     {
+        name: 'YouTube', color: '#ff4444', url: 'https://www.youtube.com',
+        cookies: ['SAPISID','__Secure-3PAPISID','LOGIN_INFO'],
+        private: [
+          { icon: '&#128274;', label: 'Videos con restricci&#243;n de edad', needsCookies: true },
+          { icon: '&#128101;', label: 'Videos de miembros (Members Only)', needsCookies: true },
+          { icon: '&#128274;', label: 'Videos privados de tu cuenta', needsCookies: true },
+          { icon: '&#10060;', label: 'Videos privados de otro usuario', needsCookies: false, note: 'Imposible aunque tengas cookies' }
+        ]
+      },
+      'youtu.be':        { alias: 'youtube.com' },
+      'instagram.com':   {
+        name: 'Instagram', color: '#e1306c', url: 'https://www.instagram.com',
+        cookies: ['sessionid','csrftoken','ds_user_id'],
+        private: [
+          { icon: '&#128274;', label: 'Posts de cuentas privadas que sigues', needsCookies: true },
+          { icon: '&#127916;', label: 'Stories y Reels de cuentas privadas', needsCookies: true },
+          { icon: '&#10060;', label: 'Cuentas privadas que NO sigues', needsCookies: false, note: 'Necesitas seguirla primero' }
+        ]
+      },
+      'twitter.com':     {
+        name: 'Twitter / X', color: '#1da1f2', url: 'https://twitter.com',
+        cookies: ['auth_token','ct0'],
+        private: [
+          { icon: '&#128274;', label: 'Tweets de cuentas protegidas que sigues', needsCookies: true },
+          { icon: '&#127916;', label: 'Videos de tweets con login requerido', needsCookies: true },
+          { icon: '&#10060;', label: 'Cuentas protegidas que NO sigues', needsCookies: false, note: 'Debes seguirla y tener aprobaci&#243;n' }
+        ]
+      },
+      'x.com':           { alias: 'twitter.com' },
+      'tiktok.com':      {
+        name: 'TikTok', color: '#69c9d0', url: 'https://www.tiktok.com',
+        cookies: ['sessionid','tt_webid_v2','ttwid'],
+        private: [
+          { icon: '&#128274;', label: 'Videos de cuentas privadas que sigues', needsCookies: true },
+          { icon: '&#127916;', label: 'Videos restringidos por regi&#243;n', needsCookies: true },
+          { icon: '&#10060;', label: 'Videos de cuentas privadas que NO sigues', needsCookies: false, note: 'Debes seguirla y estar aceptado' }
+        ]
+      },
+      'vk.com':          {
+        name: 'VK', color: '#45688e', url: 'https://vk.com',
+        cookies: ['remixsid','remixsid_https','remixlang'],
+        private: [
+          { icon: '&#128274;', label: 'Videos de grupos privados donde est&#225;s', needsCookies: true },
+          { icon: '&#127916;', label: 'Videos de perfiles privados de amigos', needsCookies: true },
+          { icon: '&#10060;', label: 'Videos de grupos/perfiles donde no est&#225;s', needsCookies: false, note: 'Necesitas ser miembro/amigo' }
+        ]
+      },
+      'vkvideo.ru':      { alias: 'vk.com' },
+      'facebook.com':    {
+        name: 'Facebook', color: '#1877f2', url: 'https://www.facebook.com',
+        cookies: ['c_user','xs','datr'],
+        private: [
+          { icon: '&#128101;', label: 'Videos de amigos con privacidad "Amigos"', needsCookies: true },
+          { icon: '&#128274;', label: 'Videos en grupos privados donde est&#225;s', needsCookies: true },
+          { icon: '&#10060;', label: 'Videos de "Solo yo" de otros usuarios', needsCookies: false, note: 'Imposible' }
+        ]
+      },
+      'reddit.com':      {
+        name: 'Reddit', color: '#ff4500', url: 'https://www.reddit.com',
+        cookies: ['reddit_session','token_v2'],
+        private: [
+          { icon: '&#128274;', label: 'Posts en subreddits privados donde est&#225;s', needsCookies: true },
+          { icon: '&#128101;', label: 'Contenido NSFW (mayores de 18)', needsCookies: true },
+          { icon: '&#10060;', label: 'Subreddits privados donde NO est&#225;s', needsCookies: false, note: 'Necesitas ser miembro aprobado' }
+        ]
+      },
+      'vimeo.com':       {
+        name: 'Vimeo', color: '#1ab7ea', url: 'https://vimeo.com',
+        cookies: ['vimeo','vimeo_remember_me'],
+        private: [
+          { icon: '&#128274;', label: 'Videos privados de tu propia cuenta', needsCookies: true },
+          { icon: '&#128101;', label: 'Videos privados compartidos contigo', needsCookies: true },
+          { icon: '&#128220;', label: 'Videos con contrase&#241;a', needsCookies: false, note: 'Usa la opci&#243;n de contrase&#241;a en yt-dlp con --video-password' }
+        ]
+      },
+      'twitch.tv':       {
+        name: 'Twitch', color: '#9147ff', url: 'https://www.twitch.tv',
+        cookies: ['auth-token','twilight-user'],
+        private: [
+          { icon: '&#128101;', label: 'VODs exclusivos para suscriptores', needsCookies: true },
+          { icon: '&#127916;', label: 'Clips de canales con restricci&#243;n', needsCookies: true },
+          { icon: '&#10060;', label: 'Streams eliminados o expirados', needsCookies: false, note: 'Ya no existen en el servidor' }
+        ]
+      },
+      'bilibili.com':    {
+        name: 'Bilibili', color: '#00b2ff', url: 'https://www.bilibili.com',
+        cookies: ['SESSDATA','bili_jct','DedeUserID'],
+        private: [
+          { icon: '&#128274;', label: 'Videos para usuarios registrados (login)', needsCookies: true },
+          { icon: '&#128101;', label: 'Contenido de Big Membership (suscripci&#243;n)', needsCookies: true },
+          { icon: '&#10060;', label: 'Videos eliminados o en revisi&#243;n', needsCookies: false, note: 'Ya no est&#225;n disponibles' }
+        ]
+      },
+      'dailymotion.com': {
+        name: 'Dailymotion', color: '#0066cc', url: 'https://www.dailymotion.com',
+        cookies: ['sid','ts'],
+        private: [
+          { icon: '&#128274;', label: 'Videos privados de tu cuenta', needsCookies: true },
+          { icon: '&#10060;', label: 'Videos privados de otros usuarios', needsCookies: false, note: 'Imposible sin ser el due&#241;o' }
+        ]
       }
-    } catch(e) {}
-    return null;
-  }
+    };
 
-  function updateShortcut(url) {
-    var box = document.getElementById('platform-shortcut');
-    if (!box) return;
-    var p = resolvePlatform(url);
-    if (!p) { box.style.display = 'none'; return; }
+    function resolvePlatform(url) {
+      try {
+        var hostname = new URL(url.trim().startsWith('http') ? url.trim() : 'https://' + url.trim()).hostname.replace(/^(www\.|m\.|mobile\.|vm\.|vt\.)/, '');
+        for (var domain in PLATFORMS) {
+          if (hostname === domain || hostname.endsWith('.' + domain)) {
+            var p = PLATFORMS[domain];
+            if (p.alias) return PLATFORMS[p.alias];
+            return p;
+          }
+        }
+      } catch(e) {}
+      return null;
+    }
 
-    var cookieList = p.cookies.map(function(c){
-      return '<code style="background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-family:monospace;font-size:0.76rem;color:#c4b5fd;">' + c + '</code>';
-    }).join(' ');
+    function updateShortcut(url) {
+      var box = document.getElementById('platform-shortcut');
+      if (!box) return;
+      var p = resolvePlatform(url);
+      if (!p) { box.style.display = 'none'; return; }
 
-    var privateRows = p.private.map(function(item) {
-      return '<div style="display:flex;align-items:flex-start;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);">' +
-        '<span style="font-size:0.9rem;flex-shrink:0;">' + item.icon + '</span>' +
-        '<div style="flex:1;">' +
-          '<span style="font-size:0.81rem;color:' + (item.needsCookies ? 'var(--text)' : '#fca5a5') + ';">' + item.label + '</span>' +
-          (item.note ? '<span style="font-size:0.75rem;color:var(--muted);display:block;">' + item.note + '</span>' : '') +
-        '</div>' +
-        '<span style="font-size:0.75rem;font-weight:700;padding:2px 7px;border-radius:4px;flex-shrink:0;' +
-          (item.needsCookies
-            ? 'background:#052e16;color:#4ade80;border:1px solid #166534;">Con cookies'
-            : 'background:#450a0a;color:#fca5a5;border:1px solid #7f1d1d;">No posible') +
-        '</span>' +
-      '</div>';
-    }).join('');
+      var cookieList = p.cookies.map(function(c){
+        return '<code style="background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-family:monospace;font-size:0.76rem;color:#c4b5fd;">' + c + '</code>';
+      }).join(' ');
 
-    box.style.display = 'block';
-    box.innerHTML =
-      '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:10px;">' +
-        '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:8px;">' +
-          '<div style="display:flex;align-items:center;gap:8px;">' +
-            '<span style="width:10px;height:10px;border-radius:50%;background:' + p.color + ';flex-shrink:0;display:inline-block;"></span>' +
-            '<b style="font-size:0.88rem;color:' + p.color + ';">' + p.name + '</b>' +
-            '<span style="font-size:0.78rem;color:var(--muted);">Cookies necesarias: ' + cookieList + '</span>' +
+      var privateRows = p.private.map(function(item) {
+        return '<div style="display:flex;align-items:flex-start;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);">' +
+          '<span style="font-size:0.9rem;flex-shrink:0;">' + item.icon + '</span>' +
+          '<div style="flex:1;">' +
+            '<span style="font-size:0.81rem;color:' + (item.needsCookies ? 'var(--text)' : '#fca5a5') + ';">' + item.label + '</span>' +
+            (item.note ? '<span style="font-size:0.75rem;color:var(--muted);display:block;">' + item.note + '</span>' : '') +
           '</div>' +
-          '<a href="' + p.url + '" target="_blank" rel="noopener" ' +
-            'style="display:inline-flex;align-items:center;gap:5px;background:' + p.color + '22;border:1px solid ' + p.color + '55;color:' + p.color + ';border-radius:6px;padding:5px 12px;font-size:0.79rem;font-weight:600;text-decoration:none;white-space:nowrap;">' +
-            '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>' +
-            'Abrir ' + p.name +
-          '</a>' +
-        '</div>' +
-        '<div style="padding:8px 14px;">' +
-          '<div style="font-size:0.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;padding:4px 0 6px;">Contenido privado</div>' +
-          privateRows +
-        '</div>' +
-      '</div>';
-  }
+          '<span style="font-size:0.75rem;font-weight:700;padding:2px 7px;border-radius:4px;flex-shrink:0;' +
+            (item.needsCookies
+              ? 'background:#052e16;color:#4ade80;border:1px solid #166534;">' + 'Con cookies'
+              : 'background:#450a0a;color:#fca5a5;border:1px solid #7f1d1d;">' + 'No posible') +
+          '</span>' +
+        '</div>';
+      }).join('');
 
-  function toggleSession() {
-    var body = document.getElementById('session-body');
-    var chevron = document.getElementById('session-chevron');
-    if (!body) return;
-    var open = body.style.display === 'flex';
-    body.style.display = open ? 'none' : 'flex';
-    if (chevron) chevron.style.transform = open ? '' : 'rotate(180deg)';
-  }
+      box.style.display = 'block';
+      box.innerHTML =
+        '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;overflow:hidden;">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:8px;">' +
+            '<div style="display:flex;align-items:center;gap:8px;">' +
+              '<span style="width:10px;height:10px;border-radius:50%;background:' + p.color + ';flex-shrink:0;display:inline-block;"></span>' +
+              '<b style="font-size:0.88rem;color:' + p.color + ';">' + p.name + '</b>' +
+              '<span style="font-size:0.78rem;color:var(--muted);">Cookies necesarias: ' + cookieList + '</span>' +
+            '</div>' +
+            '<a href="' + p.url + '" target="_blank" rel="noopener" ' +
+              'style="display:inline-flex;align-items:center;gap:5px;background:' + p.color + '22;border:1px solid ' + p.color + '55;color:' + p.color + ';border-radius:6px;padding:5px 12px;font-size:0.79rem;font-weight:600;text-decoration:none;white-space:nowrap;">' +
+              '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>' +
+              'Abrir ' + p.name +
+            '</a>' +
+          '</div>' +
+          '<div style="padding:8px 14px;">' +
+            '<div style="font-size:0.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;padding:4px 0 6px;">Contenido privado</div>' +
+            privateRows +
+          '</div>' +
+        '</div>';
+    }
 
-  checkCookieStatus();
+    function toggleSession() {
+      var body = document.getElementById('session-body');
+      var chevron = document.getElementById('session-chevron');
+      var open = body.style.display === 'flex';
+      body.style.display = open ? 'none' : 'flex';
+      chevron.style.transform = open ? '' : 'rotate(180deg)';
+    }
+
+    checkCookieStatus();
 
   var form       = document.getElementById('form');
   var urlInput   = document.getElementById('url-input');
 
+    urlInput.addEventListener('input', function() {
+      var val = urlInput.value.trim();
+      if (!val) return;
+      var p = resolvePlatform(val);
+      if (p) {
+        updateShortcut(val);
+        // Auto-open the session panel so user sees the shortcut
+        var body = document.getElementById('session-body');
+        var chevron = document.getElementById('session-chevron');
+        if (body && body.style.display !== 'flex') {
+          body.style.display = 'flex';
+          if (chevron) chevron.style.transform = 'rotate(180deg)';
+        }
+      } else {
+        var box = document.getElementById('platform-shortcut');
+        if (box) box.style.display = 'none';
+      }
+    });
 
+    urlInput.addEventListener('paste', function() {
+      setTimeout(function() {
+        var val = urlInput.value.trim();
+        var p = resolvePlatform(val);
+        if (p) {
+          updateShortcut(val);
+          var body = document.getElementById('session-body');
+          var chevron = document.getElementById('session-chevron');
+          if (body && body.style.display !== 'flex') {
+            body.style.display = 'flex';
+            if (chevron) chevron.style.transform = 'rotate(180deg)';
+          }
+        }
+      }, 50);
+    });
   var searchBtn  = document.getElementById('search-btn');
   var errorBox   = document.getElementById('error-box');
   var successBox = document.getElementById('success-box');
@@ -457,37 +461,11 @@
     resultBox.classList.add('hidden');
   }
 
-  function is403Error(msg) {
-    return msg && (
-      msg.indexOf('403') !== -1 ||
-      msg.toLowerCase().indexOf('forbidden') !== -1 ||
-      msg.toLowerCase().indexOf('sign in') !== -1 ||
-      msg.toLowerCase().indexOf('bot') !== -1
-    );
-  }
-
   function showError(msg) {
-    var html = '&#9888;&#65039; ' + escHtml(msg);
-    if (is403Error(msg)) {
-      html += '<br><br>' +
-        '<b style="color:#fbbf24;">&#128274; Error 403 — YouTube está bloqueando la solicitud.</b><br>' +
-        'Para solucionarlo, configura tus <b>cookies de sesión</b> en el panel de arriba:<br>' +
-        '1. Instala la extensión <a href="https://chrome.google.com/webstore/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc" target="_blank" rel="noopener" style="color:#818cf8;">Get cookies.txt LOCALLY</a> en Chrome/Edge.<br>' +
-        '2. Entra a YouTube con tu cuenta.<br>' +
-        '3. Exporta las cookies y pégalas en el panel <b>Cookies de sesión</b>.';
-    }
-    errorBox.innerHTML = html;
+    errorBox.innerHTML = '⚠️ ' + msg;
     errorBox.classList.remove('hidden');
     loadingBox.classList.add('hidden');
     setBtnReady();
-  }
-
-  function escHtml(s) {
-    return String(s)
-      .replace(/&/g,'&amp;')
-      .replace(/</g,'&lt;')
-      .replace(/>/g,'&gt;')
-      .replace(/"/g,'&quot;');
   }
 
   function setBtnLoading() {
@@ -519,6 +497,20 @@
     if (n >= 1e3) return Math.round(n/1e3) + 'K vistas';
     return n + ' vistas';
   }
+  function fmtSpeed(bps) {
+    if (!bps || bps <= 0) return '';
+    if (bps >= 1e6) return (bps/1e6).toFixed(1) + ' MB/s';
+    if (bps >= 1e3) return Math.round(bps/1e3) + ' KB/s';
+    return Math.round(bps) + ' B/s';
+  }
+  function fmtTime(s) {
+    s = Math.round(s);
+    if (s < 0) s = 0;
+    var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+    if (h > 0) return h + 'h ' + pad(m) + 'm';
+    if (m > 0) return m + 'm ' + pad(sec) + 's';
+    return sec + 's';
+  }
   function esc(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
@@ -541,7 +533,7 @@
         currentInfo._url = url;
         renderResult(res.d);
       })
-      .catch(function(err) {
+      .catch(function() {
         showError('No se pudo conectar con el servidor. Verifica tu conexión a internet.');
       });
   }
@@ -560,18 +552,29 @@
 
     var sub = document.getElementById('vid-sub');
     sub.innerHTML = '';
-    if (data.uploader) sub.innerHTML += '<span>&#128100; ' + esc(data.uploader) + '</span>';
+    if (data.uploader) sub.innerHTML += '<span>👤 ' + esc(data.uploader) + '</span>';
     var dur = fmtDuration(data.duration);
-    if (dur) sub.innerHTML += '<span>&#9201; ' + dur + '</span>';
+    if (dur) sub.innerHTML += '<span>⏱ ' + dur + '</span>';
     var views = fmtViews(data.viewCount);
-    if (views) sub.innerHTML += '<span>&#128065; ' + views + '</span>';
+    if (views) sub.innerHTML += '<span>👁 ' + views + '</span>';
 
     document.getElementById('vid-link').href = data.webpage_url || currentInfo._url;
 
     var list = document.getElementById('formats-list');
     list.innerHTML = '';
 
-    var formats = (data.formats || []).filter(function(f) { return f.hasVideo; });
+    var allFmts = (data.formats || []).filter(function(f) {
+      return f.hasVideo && f.extension !== 'mhtml';
+    });
+    var seen = {};
+    var formats = [];
+    allFmts.forEach(function(f) {
+      var key = f.resolution || f.formatId;
+      if (!seen[key]) { seen[key] = f; formats.push(f); }
+      else if (f.hasAudio && !seen[key].hasAudio) { seen[key] = f; formats[formats.indexOf(seen[key])] = f; }
+      else if (f.filesize && seen[key].filesize && f.filesize > seen[key].filesize && f.hasAudio === seen[key].hasAudio) { seen[key] = f; }
+    });
+
     if (formats.length === 0) {
       list.innerHTML = '<div style="padding:20px;color:var(--muted);text-align:center;">No se encontraron formatos de video. Usa el botón MP3 arriba.</div>';
     } else {
@@ -584,13 +587,12 @@
 
         var res = document.createElement('div');
         res.className = 'format-res';
-        res.textContent = f.resolution || f.formatId || '—';
+        res.textContent = (f.fullRes ? f.fullRes + ' (' + f.resolution + ')' : f.resolution) || f.formatId || '—';
 
         var detail = document.createElement('div');
         detail.className = 'format-detail';
         var parts = [];
         if (f.extension) parts.push(f.extension.toUpperCase());
-        if (f.fullRes) parts.push(f.fullRes);
         if (f.fps && f.fps > 30) parts.push(f.fps + 'fps');
         var sz = fmtSize(f.filesize);
         if (sz) parts.push(sz);
@@ -598,7 +600,11 @@
 
         var badges = document.createElement('div');
         badges.className = 'format-badges';
-        badges.innerHTML += '<span class="tag tag-av">Video+Audio</span>';
+        if (f.hasAudio) {
+          badges.innerHTML += '<span class="tag tag-av">Video+Audio</span>';
+        } else {
+          badges.innerHTML += '<span class="tag tag-v">Solo Video</span>';
+        }
         if (f.extension) badges.innerHTML += '<span class="tag tag-ext">' + esc(f.extension) + '</span>';
 
         info.appendChild(res);
@@ -611,9 +617,9 @@
         var btnD = document.createElement('button');
         btnD.className = 'btn btn-primary';
         btnD.textContent = '⬇ Descargar';
-        (function(fid, hasAudio, ext){
-          btnD.onclick = function(){ startDownload(fid, !hasAudio, false, ext); };
-        })(f.formatId, f.hasAudio, f.extension);
+        (function(fid, hasAudio, ext, filesize){
+          btnD.onclick = function(){ startDownload(fid, !hasAudio, false, ext, filesize); };
+        })(f.formatId, f.hasAudio, f.extension, f.filesize);
         actions.appendChild(btnD);
 
         row.appendChild(info);
@@ -629,7 +635,7 @@
     return (name || 'video').replace(/[\/\\:*?"<>|]/g, '_').trim();
   }
 
-  function startDownload(formatId, mergeAudio, audioOnly, formatExt) {
+  function startDownload(formatId, mergeAudio, audioOnly, formatExt, knownFilesize) {
     if (!currentInfo) return;
     var params = 'url=' + encodeURIComponent(currentInfo._url) +
                  '&title=' + encodeURIComponent(currentInfo.title || 'video');
@@ -641,27 +647,54 @@
       if (formatExt) params += '&ext=' + encodeURIComponent(formatExt);
     }
 
-    function renderProgress(pct, mbReceived, mbTotal, speedMB, etaText) {
+    var startTime = Date.now();
+    var receivedBytes = 0;
+    var totalBytes = knownFilesize || 0;
+    var dlInterval = null;
+
+    function renderProgress() {
+      var elapsed = (Date.now() - startTime) / 1000;
+      var speed = elapsed > 1 ? receivedBytes / elapsed : 0;
+      var pct = totalBytes > 0 ? Math.min(99, Math.round(receivedBytes / totalBytes * 100)) : 0;
+      var remaining = (totalBytes > 0 && speed > 0) ? (totalBytes - receivedBytes) / speed : 0;
+
+      var html = '<div style="width:100%;font-size:0.88rem;">';
+      html += '<div style="display:flex;justify-content:space-between;margin-bottom:6px;align-items:center;">';
+      html += '<span><span class="spinner" style="width:13px;height:13px;border-width:2px;margin-right:6px;vertical-align:middle;"></span>Descargando' + (pct > 0 ? ' ' + pct + '%' : '...') + '</span>';
+      if (totalBytes > 0) {
+        html += '<span style="color:var(--muted);">' + fmtSize(receivedBytes) + ' / ' + fmtSize(totalBytes) + '</span>';
+      } else if (receivedBytes > 0) {
+        html += '<span style="color:var(--muted);">' + fmtSize(receivedBytes) + ' recibidos</span>';
+      }
+      html += '</div>';
+
+      if (totalBytes > 0) {
+        html += '<div style="background:var(--surface2);border-radius:4px;height:6px;margin-bottom:6px;overflow:hidden;">';
+        html += '<div style="background:var(--primary);height:6px;border-radius:4px;width:' + pct + '%;transition:width 0.4s;"></div>';
+        html += '</div>';
+      }
+
+      html += '<div style="display:flex;justify-content:space-between;color:var(--muted);font-size:0.8rem;">';
+      var sp = fmtSpeed(speed);
+      html += '<span>' + (sp ? sp : ('Transcurrido: ' + fmtTime(elapsed))) + '</span>';
+      if (remaining > 0) {
+        html += '<span>Tiempo restante: ~' + fmtTime(remaining) + '</span>';
+      } else if (sp) {
+        html += '<span>Transcurrido: ' + fmtTime(elapsed) + '</span>';
+      }
+      html += '</div>';
+      html += '</div>';
+
       successBox.style.display = 'block';
       successBox.style.alignItems = '';
       successBox.style.gap = '';
-      successBox.innerHTML =
-        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' +
-          '<span class="spinner"></span>' +
-          '<span>Descargando… <b>' + pct + '%</b>' +
-            (mbTotal !== '?' ? ' &bull; ' + mbReceived + ' / ' + mbTotal + ' MB' : ' &bull; ' + mbReceived + ' MB') +
-            (speedMB ? ' &bull; ' + speedMB + ' MB/s' : '') +
-            (etaText  ? ' &bull; ' + etaText : '') +
-          '</span>' +
-        '</div>' +
-        '<div style="background:rgba(255,255,255,0.12);border-radius:99px;height:6px;width:100%;overflow:hidden;">' +
-          '<div style="height:100%;width:' + pct + '%;background:var(--green);border-radius:99px;transition:width 0.25s linear;"></div>' +
-        '</div>';
+      successBox.innerHTML = html;
+      successBox.classList.remove('hidden');
     }
 
-    renderProgress(0, '0.0', '?', '', '');
-    successBox.classList.remove('hidden');
     errorBox.classList.add('hidden');
+    renderProgress();
+    dlInterval = setInterval(renderProgress, 600);
 
     fetch(API + '/video/download?' + params)
       .then(function(response) {
@@ -678,48 +711,34 @@
           else if (mPlain) filename = mPlain[1].trim();
         }
         if (!filename) {
-          var fExt = audioOnly ? 'mp3' : (formatExt || 'mp4');
-          filename = safeFilename(currentInfo.title) + '.' + fExt;
+          var ext = audioOnly ? 'mp3' : (formatExt || 'mp4');
+          filename = safeFilename(currentInfo.title) + '.' + ext;
         }
 
-        var total     = parseInt(response.headers.get('Content-Length') || '0', 10);
-        var received  = 0;
-        var startTime = Date.now();
-        var lastRender = 0;
-        var chunks    = [];
-        var reader    = response.body.getReader();
+        var cl = response.headers.get('Content-Length');
+        if (cl && !totalBytes) totalBytes = parseInt(cl);
 
-        function tick() {
-          var now     = Date.now();
-          if (now - lastRender < 150) return;
-          lastRender  = now;
-          var elapsed = Math.max((now - startTime) / 1000, 0.001);
-          var speed   = received / elapsed;
-          var pct     = total > 0 ? Math.min(Math.round(received / total * 100), 99) : 0;
-          var mbRcv   = (received  / 1048576).toFixed(1);
-          var mbTot   = total > 0 ? (total / 1048576).toFixed(1) : '?';
-          var spStr   = speed > 0 ? (speed / 1048576).toFixed(1) : '';
-          var eta     = '';
-          if (total > 0 && speed > 0 && received < total) {
-            var s = Math.round((total - received) / speed);
-            eta = s < 60 ? '~' + s + 's' : '~' + Math.ceil(s / 60) + ' min';
-          }
-          renderProgress(pct, mbRcv, mbTot, spStr, eta);
+        if (!response.body) {
+          return response.blob().then(function(blob) { return { blob: blob, filename: filename }; });
         }
+
+        var reader = response.body.getReader();
+        var chunks = [];
 
         function pump() {
-          return reader.read().then(function(r) {
-            if (r.done) return new Blob(chunks);
-            chunks.push(r.value);
-            received += r.value.byteLength;
-            tick();
+          return reader.read().then(function(result) {
+            if (result.done) {
+              return { blob: new Blob(chunks), filename: filename };
+            }
+            chunks.push(result.value);
+            receivedBytes += result.value.length;
             return pump();
           });
         }
-
-        return pump().then(function(blob) { return { blob: blob, filename: filename }; });
+        return pump();
       })
       .then(function(result) {
+        clearInterval(dlInterval);
         var objUrl = URL.createObjectURL(result.blob);
         var a = document.createElement('a');
         a.href = objUrl;
@@ -728,9 +747,11 @@
         a.click();
         setTimeout(function() { document.body.removeChild(a); URL.revokeObjectURL(objUrl); }, 2000);
         successBox.style.display = '';
-        successBox.innerHTML = '✅ Descarga completada: ' + result.filename;
+        successBox.innerHTML = '';
+        successBox.textContent = '✅ Descarga lista: ' + result.filename;
       })
       .catch(function(err) {
+        clearInterval(dlInterval);
         successBox.classList.add('hidden');
         showError('No se pudo descargar: ' + (err.message || 'Error desconocido. Verifica tu conexión.'));
       });
